@@ -1,0 +1,23 @@
+$kind: http-request
+name: '28 revisar qr'
+order: 28000
+method: POST
+url: '{{baseUrl}}/tokens/inspect'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"token":"{{inspectionQr}}"}
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Reconoce el acceso", () => pm.expect(pm.response.json().purpose).to.eql("ACCESS"));

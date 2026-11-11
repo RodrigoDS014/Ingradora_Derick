@@ -1,0 +1,21 @@
+$kind: http-request
+name: '25 biometria revocada'
+order: 25000
+method: POST
+url: '{{baseUrl}}/auth/biometric/login'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"token":"{{bioToken}}"}
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 401", () => pm.response.to.have.status(401));
+      pm.test("El permiso no se reutiliza", () => pm.expect(pm.response.json().code).to.eql("BIOMETRIC_REVOKED"));
+      pm.collectionVariables.unset("bioToken");

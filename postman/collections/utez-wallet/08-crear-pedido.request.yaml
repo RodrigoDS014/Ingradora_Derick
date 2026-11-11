@@ -1,0 +1,20 @@
+$kind: "http-request"
+name: "08 crear pedido"
+order: 8000
+method: "POST"
+url: "{{baseUrl}}/orders"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+body:
+  type: json
+  content: |-
+    {"items": [{"productId": "cafe", "quantity": 1}]}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 201", () => pm.response.to.have.status(201));
+      const data = pm.response.json();
+      pm.collectionVariables.set("orderId", data.id);
+      pm.test("Precio oficial de cafe", () => pm.expect(data.amountCents).to.eql(2500));

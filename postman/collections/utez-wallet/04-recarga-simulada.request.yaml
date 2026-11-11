@@ -1,0 +1,23 @@
+$kind: "http-request"
+name: "04 recarga simulada"
+order: 4000
+method: "POST"
+url: "{{baseUrl}}/wallet/topups"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{runId}}-topup"
+body:
+  type: json
+  content: |-
+    {"amountCents": 1000}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      const data = pm.response.json();
+      pm.collectionVariables.set("topupId", data.movement.id);
+      pm.collectionVariables.set("afterTopup", String(data.balanceCents));
+      pm.test("Se acredita exactamente 1000", () => pm.expect(data.balanceCents).to.eql(Number(pm.collectionVariables.get("initialBalance")) + 1000));

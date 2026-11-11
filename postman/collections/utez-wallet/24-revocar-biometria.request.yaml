@@ -1,0 +1,10 @@
+$kind: http-request
+name: '24 revocar biometria'
+order: 24000
+method: DELETE
+url: '{{baseUrl}}/auth/biometric/{{bioId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 204", () => pm.response.to.have.status(204));

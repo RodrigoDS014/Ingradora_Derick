@@ -1,0 +1,14 @@
+$kind: http-request
+name: '22 permiso biometrico'
+order: 22000
+method: POST
+url: '{{baseUrl}}/auth/biometric'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 201", () => pm.response.to.have.status(201));
+      const grant = pm.response.json();
+      pm.collectionVariables.set("bioId", grant.id);
+      pm.collectionVariables.set("bioToken", grant.token);
+      pm.test("Permiso con vencimiento", () => pm.expect(grant.expiresAt).to.be.above(Date.now()));

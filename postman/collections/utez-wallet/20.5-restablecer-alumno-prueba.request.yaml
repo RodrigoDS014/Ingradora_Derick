@@ -1,0 +1,23 @@
+$kind: http-request
+name: '20.5 restablecer alumno prueba'
+order: 20500
+method: POST
+url: '{{baseUrl}}/admin/students/{{newStudentId}}/password'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"temporaryPassword":"NuevaTemporal2026!"}
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Exige una contraseña nueva", () => pm.expect(pm.response.json().mustChangePassword).to.eql(true));

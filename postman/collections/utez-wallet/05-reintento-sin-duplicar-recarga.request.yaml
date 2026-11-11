@@ -1,0 +1,22 @@
+$kind: "http-request"
+name: "05 reintento sin duplicar recarga"
+order: 5000
+method: "POST"
+url: "{{baseUrl}}/wallet/topups"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{runId}}-topup"
+body:
+  type: json
+  content: |-
+    {"amountCents": 1000}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      const data = pm.response.json();
+      pm.test("Mismo recibo", () => pm.expect(data.movement.id).to.eql(pm.collectionVariables.get("topupId")));
+      pm.test("Sin abono duplicado", () => pm.expect(data.balanceCents).to.eql(Number(pm.collectionVariables.get("afterTopup"))));

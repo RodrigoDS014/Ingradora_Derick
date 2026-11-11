@@ -1,0 +1,603 @@
+openapi: 3.0.3
+info:
+  title: UTEZ Student Wallet API
+  version: 0.2.0
+  description: Prototipo escolar. Dinero en centavos MXN. NFC y Oracle aún no integrados.
+servers:
+  - url: http://localhost:8080/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      security: []
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: {type: string, example: '20240001'}
+                password: {type: string, format: password, example: 'Alumno123!'}
+      responses:
+        '200':
+          description: Sesión opaca de 8 horas
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [token, user]
+                properties:
+                  token: {type: string}
+                  user: {$ref: '#/components/schemas/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revocar sesión actual
+      responses:
+        '204': {description: Sesión cerrada}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/password:
+    post:
+      operationId: changePassword
+      summary: Cambiar contraseña y revocar otras sesiones
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: {type: string, format: password}
+                newPassword: {type: string, format: password, minLength: 8, maxLength: 128}
+      responses:
+        '200': {$ref: '#/components/responses/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+  /me:
+    get:
+      operationId: me
+      summary: Perfil y saldo de la sesión actual
+      responses:
+        '200': {$ref: '#/components/responses/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+  /me/photo:
+    put:
+      operationId: updatePhoto
+      summary: Guardar fotografía del alumno activo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [photoBase64]
+              properties:
+                photoBase64: {type: string, format: byte, maxLength: 280000, description: JPEG de hasta 200 KB}
+      responses:
+        '200': {$ref: '#/components/responses/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+  /me/movements:
+    get:
+      operationId: movements
+      summary: Últimos 100 movimientos del alumno, más reciente primero
+      responses:
+        '200':
+          description: Historial
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Movement'}}
+        default: {$ref: '#/components/responses/Error'}
+  /catalog:
+    get:
+      operationId: catalog
+      summary: Catálogo de cafetería con precios del servidor
+      responses:
+        '200':
+          description: Productos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, description, priceCents]
+                  properties:
+                    id: {type: string}
+                    name: {type: string}
+                    description: {type: string}
+                    priceCents: {type: integer, format: int64}
+                    available: {type: boolean}
+                    archived: {type: boolean}
+        default: {$ref: '#/components/responses/Error'}
+  /wallet/topups:
+    post:
+      operationId: topup
+      summary: Recarga simulada de alumno activo
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountCents]
+              properties:
+                amountCents: {type: integer, format: int64, minimum: 1000, maximum: 500000}
+                testCard: {type: string, enum: ['4242424242424242'], default: '4242424242424242'}
+      responses:
+        '200': {$ref: '#/components/responses/Transaction'}
+        default: {$ref: '#/components/responses/Error'}
+  /access/simulate:
+    post:
+      operationId: simulateAccess
+      summary: Registrar acceso de prueba, sin lectura NFC
+      responses:
+        '200': {$ref: '#/components/responses/Movement'}
+        default: {$ref: '#/components/responses/Error'}
+  /tokens/access:
+    post:
+      operationId: accessToken
+      summary: Emitir token firmado de acceso, un uso y 45 segundos
+      responses:
+        '200': {$ref: '#/components/responses/Token'}
+        default: {$ref: '#/components/responses/Error'}
+  /tokens/access/redeem:
+    post:
+      operationId: redeemAccess
+      summary: Administrador consume un QR de acceso
+      requestBody: {$ref: '#/components/requestBodies/Redeem'}
+      responses:
+        '200': {$ref: '#/components/responses/Movement'}
+        default: {$ref: '#/components/responses/Error'}
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Crear orden con productos del catálogo, vigente 5 minutos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                studentId: {type: string, nullable: true, description: Obligatorio para administrador. Alumno solo puede usar su propio ID.}
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: {$ref: '#/components/schemas/OrderItem'}
+      responses:
+        '201':
+          description: Orden creada
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+        default: {$ref: '#/components/responses/Error'}
+  /orders/{id}/approve:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      operationId: approveOrder
+      summary: Alumno propietario autoriza orden y recibe QR de pago de 45 segundos
+      responses:
+        '200': {$ref: '#/components/responses/Token'}
+        default: {$ref: '#/components/responses/Error'}
+  /payments:
+    post:
+      operationId: pay
+      summary: Cobro atómico por administrador o autoterminal de alumno propietario
+      description: Repetir clave y cuerpo devuelve el recibo original. Otro uso del QR se rechaza. Se valida estatus vigente antes de un nuevo cargo.
+      parameters: [{$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody: {$ref: '#/components/requestBodies/Redeem'}
+      responses:
+        '200': {$ref: '#/components/responses/Transaction'}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/students:
+    get:
+      operationId: students
+      summary: Directorio administrativo filtrado, excluye bajas lógicas
+      parameters:
+        - {name: query, in: query, schema: {type: string}}
+        - {name: career, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string, enum: [ACTIVO, INACTIVO]}}
+      responses:
+        '200':
+          description: Alumnos ordenados por nombre
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Profile'}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: createStudent
+      summary: Alta administrativa, saldo cero y cambio de contraseña obligatorio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - {$ref: '#/components/schemas/StudentInput'}
+                - type: object
+                  required: [initialPassword]
+                  properties:
+                    initialPassword: {type: string, format: password, minLength: 8, maxLength: 128}
+                    status: {type: string, enum: [ACTIVO, INACTIVO], default: ACTIVO}
+      responses:
+        '201': {$ref: '#/components/responses/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/students/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    put:
+      operationId: editStudent
+      summary: Editar datos del alumno, sin cambiar saldo ni estatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/StudentInput'}
+      responses:
+        '200': {$ref: '#/components/responses/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: deleteStudent
+      summary: Baja lógica, revoca sesiones y conserva historial
+      responses:
+        '204': {description: Baja completada}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/students/{id}/status:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    patch:
+      operationId: setStatus
+      summary: Cambiar estatus, aplicado en cada validación posterior
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {type: string, enum: [ACTIVO, INACTIVO]}
+      responses:
+        '200': {$ref: '#/components/responses/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/biometric:
+    post:
+      operationId: crearPermisoBiometrico
+      summary: Emite un permiso biométrico revocable para el usuario actual
+      responses:
+        '201':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BiometricGrant'}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/biometric/login:
+    post:
+      operationId: entrarConBiometria
+      summary: Canjea un permiso biométrico vigente por una sesión
+      security: []
+      requestBody: {$ref: '#/components/requestBodies/Redeem'}
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BiometricSession'}
+        default: {$ref: '#/components/responses/Error'}
+  /auth/biometric/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    delete:
+      operationId: revocarPermisoBiometrico
+      summary: Revoca un permiso biométrico propio
+      responses:
+        '204':
+          description: Operación completada
+        default: {$ref: '#/components/responses/Error'}
+  /tokens/inspect:
+    post:
+      operationId: revisarQr
+      summary: Administrador revisa un QR sin consumirlo
+      requestBody: {$ref: '#/components/requestBodies/Redeem'}
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/QrReview'}
+        default: {$ref: '#/components/responses/Error'}
+  /receipts/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      operationId: verComprobante
+      summary: Consulta un comprobante como propietario o administrador
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PurchaseReceipt'}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/students/{id}/password:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    post:
+      operationId: restablecerContrasena
+      summary: Administrador asigna contraseña temporal y revoca sesiones y permisos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResetPassword'}
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Profile'}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/students/{id}/movements:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    get:
+      operationId: verMovimientosAlumno
+      summary: Administrador consulta los últimos 100 movimientos
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Movement'}}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/audit:
+    get:
+      operationId: verAuditoria
+      summary: Administrador consulta los últimos 200 cambios
+      parameters:
+        - {name: studentId, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/AuditEntry'}}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/products:
+    get:
+      operationId: verProductos
+      summary: Administrador lista los productos del catálogo
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/ManagedProduct'}}
+        default: {$ref: '#/components/responses/Error'}
+    post:
+      operationId: crearProducto
+      summary: Administrador agrega un producto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProductInput'}
+      responses:
+        '201':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ManagedProduct'}
+        default: {$ref: '#/components/responses/Error'}
+  /admin/products/{id}:
+    parameters: [{$ref: '#/components/parameters/Id'}]
+    put:
+      operationId: editarProducto
+      summary: Administrador actualiza datos, precio y disponibilidad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProductInput'}
+      responses:
+        '200':
+          description: Respuesta correcta
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ManagedProduct'}
+        default: {$ref: '#/components/responses/Error'}
+    delete:
+      operationId: retirarProducto
+      summary: Administrador retira un producto sin modificar comprobantes previos
+      responses:
+        '204':
+          description: Operación completada
+        default: {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: opaque}
+  parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 1, maxLength: 100}}
+  requestBodies:
+    Redeem:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [token]
+            properties:
+              token: {type: string, maxLength: 2000}
+  responses:
+    Profile:
+      description: Perfil
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Profile'}
+    Movement:
+      description: Movimiento registrado
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Movement'}
+    Transaction:
+      description: Operación confirmada o recibo del mismo reintento
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [movement, balanceCents]
+            properties:
+              movement: {$ref: '#/components/schemas/Movement'}
+              balanceCents: {type: integer, format: int64, minimum: 0}
+    Token:
+      description: Código firmado por el motor que lo emite; queda inválido al reiniciarlo
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [token, expiresAt, purpose]
+            properties:
+              token: {type: string}
+              expiresAt: {type: integer, format: int64, description: Epoch en milisegundos}
+              purpose: {type: string, enum: [ACCESS, PAYMENT]}
+    Error:
+      description: 400 JSON inválido; 401 sesión; 403 permisos/estatus/contraseña; 404 recurso; 409 conflicto; 422 validación; 500 almacenamiento o error interno
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code: {type: string}
+              message: {type: string}
+  schemas:
+    Profile:
+      type: object
+      required: [id, username, name, role, career, email, status, balanceCents, mustChangePassword]
+      properties:
+        id: {type: string}
+        username: {type: string}
+        name: {type: string}
+        role: {type: string, enum: [ALUMNO, ADMINISTRADOR]}
+        career: {type: string}
+        email: {type: string}
+        status: {type: string, enum: [ACTIVO, INACTIVO]}
+        balanceCents: {type: integer, format: int64, minimum: 0}
+        mustChangePassword: {type: boolean}
+        photoBase64: {type: string, nullable: true, format: byte}
+    StudentInput:
+      type: object
+      required: [name, username, career, email]
+      properties:
+        name: {type: string, minLength: 3, maxLength: 100}
+        username: {type: string, pattern: '^[0-9]{6,15}$'}
+        career: {type: string, minLength: 3, maxLength: 100}
+        email: {type: string, format: email, maxLength: 150}
+    OrderItem:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId: {type: string}
+        quantity: {type: integer, minimum: 1, maximum: 20}
+    Order:
+      type: object
+      required: [id, studentId, items, amountCents, createdAt, paid]
+      properties:
+        id: {type: string}
+        studentId: {type: string}
+        items: {type: array, items: {$ref: '#/components/schemas/OrderItem'}}
+        amountCents: {type: integer, format: int64, minimum: 1}
+        createdAt: {type: integer, format: int64}
+        paid: {type: boolean}
+        lines: {type: array, items: {$ref: '#/components/schemas/OrderLine'}}
+    Movement:
+      type: object
+      required: [id, studentId, kind, title, amountCents, balanceAfterCents, timestamp, method]
+      properties:
+        id: {type: string}
+        studentId: {type: string}
+        kind: {type: string, enum: [RECARGA, COMPRA, ACCESO]}
+        title: {type: string}
+        amountCents: {type: integer, format: int64}
+        balanceAfterCents: {type: integer, format: int64, minimum: 0}
+        timestamp: {type: integer, format: int64}
+        method: {type: string}
+        orderId: {type: string, nullable: true}
+    BiometricGrant:
+      type: object
+      required: [id, token, expiresAt]
+      properties:
+        id: {type: string}
+        token: {type: string, description: Se guarda cifrado en el dispositivo.}
+        expiresAt: {type: integer, format: int64, description: Epoch en milisegundos. Vigencia de 30 días.}
+    BiometricSession:
+      type: object
+      required: [token, user]
+      properties:
+        token: {type: string}
+        user: {$ref: '#/components/schemas/Profile'}
+    ResetPassword:
+      type: object
+      required: [temporaryPassword]
+      properties:
+        temporaryPassword: {type: string, format: password, minLength: 8, maxLength: 128}
+    ProductInput:
+      type: object
+      required: [name, description, priceCents]
+      properties:
+        name: {type: string, minLength: 2, maxLength: 80}
+        description: {type: string, maxLength: 160}
+        priceCents: {type: integer, format: int64, minimum: 1, maximum: 100000}
+        available: {type: boolean, default: true}
+    ManagedProduct:
+      allOf:
+        - {$ref: '#/components/schemas/ProductInput'}
+        - type: object
+          required: [id, archived]
+          properties:
+            id: {type: string}
+            archived: {type: boolean, default: false}
+    OrderLine:
+      type: object
+      required: [productId, name, quantity, unitPriceCents]
+      properties:
+        productId: {type: string}
+        name: {type: string}
+        quantity: {type: integer, minimum: 1, maximum: 20}
+        unitPriceCents: {type: integer, format: int64, minimum: 1}
+    QrReview:
+      type: object
+      required: [purpose, studentName, username, expiresAt, amountCents, lines]
+      properties:
+        purpose: {type: string, enum: [ACCESS, PAYMENT]}
+        studentName: {type: string}
+        username: {type: string}
+        expiresAt: {type: integer, format: int64}
+        amountCents: {type: integer, format: int64, minimum: 0}
+        lines: {type: array, items: {$ref: '#/components/schemas/OrderLine'}}
+    PurchaseReceipt:
+      type: object
+      required: [movement, studentName, username, lines, currency, simulated]
+      properties:
+        movement: {$ref: '#/components/schemas/Movement'}
+        studentName: {type: string}
+        username: {type: string}
+        lines: {type: array, items: {$ref: '#/components/schemas/OrderLine'}}
+        currency: {type: string, enum: [MXN]}
+        simulated: {type: boolean, default: true}
+    AuditEntry:
+      type: object
+      required: [id, actorId, actorName, targetId, targetType, action, details, timestamp]
+      properties:
+        id: {type: string}
+        actorId: {type: string}
+        actorName: {type: string}
+        targetId: {type: string}
+        targetType: {type: string, enum: [ALUMNO, PRODUCTO]}
+        action: {type: string}
+        details: {type: string}
+        timestamp: {type: integer, format: int64}

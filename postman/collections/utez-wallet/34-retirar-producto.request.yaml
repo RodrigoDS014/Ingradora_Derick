@@ -1,0 +1,15 @@
+$kind: http-request
+name: '34 retirar producto'
+order: 34000
+method: DELETE
+url: '{{baseUrl}}/admin/products/{{productId}}'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 204", () => pm.response.to.have.status(204));

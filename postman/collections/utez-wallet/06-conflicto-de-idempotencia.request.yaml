@@ -1,0 +1,20 @@
+$kind: "http-request"
+name: "06 conflicto de idempotencia"
+order: 6000
+method: "POST"
+url: "{{baseUrl}}/wallet/topups"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{runId}}-topup"
+body:
+  type: json
+  content: |-
+    {"amountCents": 2000}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 409", () => pm.response.to.have.status(409));
+      pm.test("IDEMPOTENCY_CONFLICT", () => pm.expect(pm.response.json().code).to.eql("IDEMPOTENCY_CONFLICT"));

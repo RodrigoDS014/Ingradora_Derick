@@ -1,0 +1,23 @@
+$kind: "http-request"
+name: "15 validar acceso"
+order: 15000
+method: "POST"
+url: "{{baseUrl}}/tokens/access/redeem"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: "{{adminToken}}"
+body:
+  type: json
+  content: |-
+    {"token": "{{accessQr}}"}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Movimiento de acceso", () => pm.expect(pm.response.json().kind).to.eql("ACCESO"));

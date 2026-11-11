@@ -1,0 +1,23 @@
+$kind: http-request
+name: '32 alta producto'
+order: 32000
+method: POST
+url: '{{baseUrl}}/admin/products'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"name":"Producto de prueba","description":"Regresión local","priceCents":3600}
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 201", () => pm.response.to.have.status(201));
+      pm.collectionVariables.set("productId", pm.response.json().id);

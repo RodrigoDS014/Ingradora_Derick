@@ -1,0 +1,20 @@
+$kind: http-request
+name: '23 inicio biometrico'
+order: 23000
+method: POST
+url: '{{baseUrl}}/auth/biometric/login'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"token":"{{bioToken}}"}
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("La sesión corresponde al mismo alumno", () => pm.expect(pm.response.json().user.id).to.eql(pm.collectionVariables.get("studentId")));

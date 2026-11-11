@@ -1,0 +1,30 @@
+$kind: "http-request"
+name: "20 alta de alumno"
+order: 20000
+method: "POST"
+url: "{{baseUrl}}/admin/students"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: "{{adminToken}}"
+body:
+  type: json
+  content: |-
+    {"name": "Alumno de prueba API", "username": "{{newUsername}}", "career": "Mecatronica", "email": "prueba@utez.edu.mx", "initialPassword": "Temporal123!"}
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set("newUsername", "22" + String(Date.now()).slice(-8));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 201", () => pm.response.to.have.status(201));
+      const data = pm.response.json();
+      pm.collectionVariables.set("newStudentId", data.id);
+      pm.test("Cambio inicial obligatorio", () => pm.expect(data.mustChangePassword).to.eql(true));
+      pm.test("Saldo inicial cero", () => pm.expect(data.balanceCents).to.eql(0));

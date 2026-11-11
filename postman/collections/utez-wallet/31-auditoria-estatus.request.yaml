@@ -1,0 +1,16 @@
+$kind: http-request
+name: '31 auditoria estatus'
+order: 31000
+method: GET
+url: '{{baseUrl}}/admin/audit?studentId={{studentId}}'
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Registra al administrador y el cambio", () => pm.expect(pm.response.json().some(item => item.actorName && item.action === "ESTATUS")).to.eql(true));

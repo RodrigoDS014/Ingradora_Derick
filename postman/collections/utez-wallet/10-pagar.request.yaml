@@ -1,0 +1,23 @@
+$kind: "http-request"
+name: "10 pagar"
+order: 10000
+method: "POST"
+url: "{{baseUrl}}/payments"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{runId}}-pay"
+body:
+  type: json
+  content: |-
+    {"token": "{{paymentQr}}"}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      const data = pm.response.json();
+      pm.collectionVariables.set("paymentId", data.movement.id);
+      pm.test("Descuento exacto", () => pm.expect(data.balanceCents).to.eql(Number(pm.collectionVariables.get("afterTopup")) - 2500));
+      pm.test("Saldo no negativo", () => pm.expect(data.balanceCents).to.be.at.least(0));

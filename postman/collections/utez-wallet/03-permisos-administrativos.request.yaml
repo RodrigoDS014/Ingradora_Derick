@@ -1,0 +1,11 @@
+$kind: "http-request"
+name: "03 permisos administrativos"
+order: 3000
+method: "GET"
+url: "{{baseUrl}}/admin/students"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 403", () => pm.response.to.have.status(403));
+      pm.test("FORBIDDEN", () => pm.expect(pm.response.json().code).to.eql("FORBIDDEN"));

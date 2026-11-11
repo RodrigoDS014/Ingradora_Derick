@@ -1,0 +1,28 @@
+$kind: "http-request"
+name: "01 login alumno"
+order: 1000
+method: "POST"
+url: "{{baseUrl}}/auth/login"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+auth:
+  type: noauth
+body:
+  type: json
+  content: |-
+    {"username": "20240001", "password": "Alumno123!"}
+scripts:
+  - type: beforeRequest
+    language: text/javascript
+    code: |-
+      pm.collectionVariables.set("runId", String(Date.now()));
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      const data = pm.response.json();
+      pm.collectionVariables.set("studentToken", data.token);
+      pm.collectionVariables.set("studentId", data.user.id);
+      pm.collectionVariables.set("initialBalance", String(data.user.balanceCents));
+      pm.test("Rol alumno", () => pm.expect(data.user.role).to.eql("ALUMNO"));

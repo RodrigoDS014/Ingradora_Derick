@@ -1,0 +1,20 @@
+$kind: "http-request"
+name: "12 QR consumido"
+order: 12000
+method: "POST"
+url: "{{baseUrl}}/payments"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{runId}}-pay-again"
+body:
+  type: json
+  content: |-
+    {"token": "{{paymentQr}}"}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 409", () => pm.response.to.have.status(409));
+      pm.test("TOKEN_USED", () => pm.expect(pm.response.json().code).to.eql("TOKEN_USED"));

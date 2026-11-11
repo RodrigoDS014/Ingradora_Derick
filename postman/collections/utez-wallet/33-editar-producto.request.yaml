@@ -1,0 +1,23 @@
+$kind: http-request
+name: '33 editar producto'
+order: 33000
+method: PUT
+url: '{{baseUrl}}/admin/products/{{productId}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {"name":"Producto de prueba","description":"Regresión local","priceCents":4100,"available":false}
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{adminToken}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Precio y disponibilidad actualizados", () => { const product = pm.response.json(); pm.expect(product.priceCents).to.eql(4100); pm.expect(product.available).to.eql(false); });

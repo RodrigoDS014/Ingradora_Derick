@@ -1,0 +1,20 @@
+$kind: "http-request"
+name: "18 inactivo no recarga"
+order: 18000
+method: "POST"
+url: "{{baseUrl}}/wallet/topups"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{runId}}-inactive"
+body:
+  type: json
+  content: |-
+    {"amountCents": 1000}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 403", () => pm.response.to.have.status(403));
+      pm.test("STUDENT_INACTIVE", () => pm.expect(pm.response.json().code).to.eql("STUDENT_INACTIVE"));

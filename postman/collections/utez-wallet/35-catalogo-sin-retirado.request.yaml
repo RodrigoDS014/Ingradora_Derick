@@ -1,0 +1,11 @@
+$kind: http-request
+name: '35 catalogo sin retirado'
+order: 35000
+method: GET
+url: '{{baseUrl}}/catalog'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Producto retirado fuera del catálogo", () => pm.expect(pm.response.json().some(item => item.id === pm.collectionVariables.get("productId"))).to.eql(false));

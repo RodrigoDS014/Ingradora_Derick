@@ -1,0 +1,15 @@
+$kind: "http-request"
+name: "21 baja logica de prueba"
+order: 21000
+method: "DELETE"
+url: "{{baseUrl}}/admin/students/{{newStudentId}}"
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: "{{adminToken}}"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 204", () => pm.response.to.have.status(204));

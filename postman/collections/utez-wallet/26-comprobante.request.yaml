@@ -1,0 +1,13 @@
+$kind: http-request
+name: '26 comprobante'
+order: 26000
+method: GET
+url: '{{baseUrl}}/receipts/{{paymentId}}'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      const receipt = pm.response.json();
+      pm.test("Comprobante de la compra realizada", () => pm.expect(receipt.movement.id).to.eql(pm.collectionVariables.get("paymentId")));
+      pm.test("Precio original y simulación", () => { pm.expect(receipt.lines[0].unitPriceCents).to.eql(2500); pm.expect(receipt.simulated).to.eql(true); });

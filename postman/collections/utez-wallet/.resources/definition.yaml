@@ -1,0 +1,15 @@
+$kind: collection
+name: UTEZ Wallet - regresion local
+description: Pruebas con dinero ficticio. Ejecutar en orden contra un servidor de pruebas.
+variables:
+  - key: baseUrl
+    value: 'http://127.0.0.1:8080/api/v1'
+  - key: studentToken
+    value: ''
+  - key: adminToken
+    value: ''
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{studentToken}}'
