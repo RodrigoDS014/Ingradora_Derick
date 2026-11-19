@@ -1,0 +1,20 @@
+$kind: "http-request"
+name: "11 reintento sin doble cargo"
+order: 11000
+method: "POST"
+url: "{{baseUrl}}/payments"
+headers:
+  - key: "Content-Type"
+    value: "application/json"
+  - key: "Idempotency-Key"
+    value: "{{runId}}-pay"
+body:
+  type: json
+  content: |-
+    {"token": "{{paymentQr}}"}
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      pm.test("Mismo recibo", () => pm.expect(pm.response.json().movement.id).to.eql(pm.collectionVariables.get("paymentId")));

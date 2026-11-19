@@ -1,0 +1,13 @@
+$kind: "http-request"
+name: "02 sesion requerida"
+order: 2000
+method: "GET"
+url: "{{baseUrl}}/me"
+auth:
+  type: noauth
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 401", () => pm.response.to.have.status(401));
+      pm.test("UNAUTHORIZED", () => pm.expect(pm.response.json().code).to.eql("UNAUTHORIZED"));

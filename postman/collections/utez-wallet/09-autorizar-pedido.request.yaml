@@ -1,0 +1,14 @@
+$kind: "http-request"
+name: "09 autorizar pedido"
+order: 9000
+method: "POST"
+url: "{{baseUrl}}/orders/{{orderId}}/approve"
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("HTTP 200", () => pm.response.to.have.status(200));
+      const data = pm.response.json();
+      pm.collectionVariables.set("paymentQr", data.token);
+      pm.test("Finalidad PAYMENT", () => pm.expect(data.purpose).to.eql("PAYMENT"));
+      pm.test("Token vigente", () => pm.expect(data.expiresAt).to.be.above(Date.now()));
